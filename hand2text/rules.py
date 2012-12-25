@@ -148,20 +148,41 @@ STROKE_COUNTS = {
 
 TRACK_RULES = {
   'て': [
-    lambda htracks, vtracks: htracks[0] == 'RLR',
+    lambda htracks, vtracks: htracks[0][:2] == 'RL',
+    ],
+  'で': [
+    lambda htracks, vtracks: htracks[0][:2] == 'RL',
+    ],
+  'ぐ': [
+    lambda htracks, vtracks: htracks[0] == 'LR',
+    ],
+  'そ': [
+    lambda htracks, vtracks: htracks[0][:4] == 'RLRL',
     ],
   'も': [
-    lambda htracks, vtracks: vtracks[2] == 'DU',
+    lambda htracks, vtracks: vtracks[2] == 'DMU',
     ],
   'わ': [
     lambda htracks, vtracks: htracks[1][-1] == 'L',
     ],
+  'や': [
+    lambda htracks, vtracks: htracks[0] == 'RML',
+    ],
   'り': [
-    lambda htracks, vtracks: vtracks[1] == 'UD',
+    lambda htracks, vtracks: vtracks[1][0] == 'U',
+    ],
+  'へ': [
+    lambda htracks, vtracks: vtracks[0] == 'UD',
+    ],
+  'べ': [
+    lambda htracks, vtracks: vtracks[0] == 'UD',
+    ],
+  'め': [
+    lambda htracks, vtracks: htracks[-1][-1] == 'L',
     ],
 
   'キ': [
-    lambda htracks, vtracks: htracks[2] == 'R',
+    lambda htracks, vtracks: htracks[2] != 'L',
     ],
   'ケ': [
     lambda htracks, vtracks: htracks[0] == 'L',
@@ -179,9 +200,25 @@ TRACK_RULES = {
     lambda htracks, vtracks: htracks[1] == 'R',
     lambda htracks, vtracks: htracks[2] == 'L',
     ],
+  'テ': [
+    lambda htracks, vtracks: htracks[0] == 'R',
+    lambda htracks, vtracks: htracks[1] == 'R',
+    ],
   'ヌ': [
     lambda htracks, vtracks: htracks[0] == 'R',
     lambda htracks, vtracks: htracks[1] == 'L',
+    ],
+  'リ': [
+    lambda htracks, vtracks: vtracks[0] == 'M',
+    ],
+  'ラ': [
+    lambda htracks, vtracks: vtracks[0] == 'M',
+    ],
+  'レ': [
+    lambda htracks, vtracks: vtracks[0] == 'DU',
+    ],
+  'モ': [
+    lambda htracks, vtracks: vtracks[-1][-1] == 'M',
     ],
 
 }

@@ -178,16 +178,24 @@ class Canvas(QGraphicsView):
     result = self.recognizer.classify(self.char, 10)
     self.result = []
     for i in range(result.size()):
+      skip = False
       value = result.value(i)
       if STROKE_COUNTS[value] != stroke_count: continue
       for rule in TRACK_RULES.get(value, []):
-        print value, rule, htracks, vtracks
-        if not rule(htracks, vtracks): continue
+        print value, htracks, vtracks
+        print rule(htracks, vtracks)
+        if not rule(htracks, vtracks): 
+          skip = True
+          break
+      if skip: continue
       if not INTERSECT_RULES.get(value, lambda i: True)(intersect_count):
         continue
       for rule in MOVE_RULES.get(value, []):
         print value, rule, hmoves, vmoves
-        if not rule(hmoves, vmoves): continue
+        if not rule(hmoves, vmoves): 
+          continue
+          skip = True
+      if skip: continue
       self.result.append(Result(result.score(i), value))
     if result.size() > 0:
       self.on_result()
