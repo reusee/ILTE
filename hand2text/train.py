@@ -11,6 +11,8 @@ class Canvas(canvas.Canvas):
   def __init__(self):
     super(Canvas, self).__init__()
 
+    self.recognized.connect(self.on_recognized)
+
     self.out = open('jp.train', 'a')
 
     self.font = QFont()
@@ -21,6 +23,11 @@ class Canvas(canvas.Canvas):
     self.candidate_font.setPointSize(48)
     self.candidate_brush = QBrush(QColor(0, 0, 128, 196))
     self.candidate_text = None
+    def _on_reset():
+      if self.candidate_text:
+        self.scene.removeItem(self.candidate_text)
+        self.candidate_text = None
+    self.reseted.connect(_on_reset)
 
     self.chars = [
         #'あ', 'い', 'う', 'え', 'お', 
@@ -56,48 +63,55 @@ class Canvas(canvas.Canvas):
         #'ワ', 'ヲ', 'ン', 
 
         ]
+
+    self.train_text_item = None
     self.index = -1
     self.cur_char = None
-    self.choice()
+    self.show_next()
 
-  def choice(self):
+  def next_char(self):
     self.index += 1
     if self.index == len(self.chars):
       self.index = 0
-    self.reset()
     self.cur_char = self.chars[self.index]
+
+  def show_char(self):
+    self.reset()
+    if self.train_text_item:
+      self.scene.removeItem(self.train_text_item)
     text = self.scene.addSimpleText(QString(self.cur_char.decode('utf8')), self.font)
     text.setBrush(self.brush)
+    self.train_text_item = text
+
+  def show_next(self):
+    self.next_char()
+    self.show_char()
 
   def keyPressEvent(self, event):
     if event.key() == Qt.Key_Tab:
-      self.choice()
+      self.show_next()
     elif event.key() == Qt.Key_Space:
-      if not self.strokes:
-        self.choice()
-        return
-      print >>self.out, '(character (value %s) (width %d) (height %d) (strokes' % (
-          self.cur_char, self.CHAR_WIDTH, self.CHAR_HEIGHT
-          ),
-      for stroke in self.transform_strokes:
-        print >>self.out, '(',
-        for point in stroke:
-          x, y = point
-          print >>self.out, '(', x, y, ')',
-        print >>self.out, ')',
-      print >>self.out, '))'
+      if self.strokes:
+        self.output_train_data()
+      self.show_next()
 
-      if self.result:
-        if self.result[0].value != self.cur_char:
-          print self.cur_char, 'XX', ' '.join(x.value for x in self.result)
+  def mousePressEvent(self, event):
+    if event.button() == Qt.RightButton:
+      self.undo_stroke()
 
-      self.choice()
+  def output_train_data(self):
+    print >>self.out, '(character (value %s) (width %d) (height %d) (strokes' % (
+        self.cur_char, self.CHAR_WIDTH, self.CHAR_HEIGHT
+        ),
+    for stroke in self.transform_strokes:
+      print >>self.out, '(',
+      for point in stroke:
+        x, y = point
+        print >>self.out, '(', x, y, ')',
+      print >>self.out, ')',
+    print >>self.out, '))'
 
-  def on_reset(self):
-    self.candidate_text = None
-
-  def on_result(self):
-    #print self.cur_char, '=>', ' '.join(x.value for x in self.result)
+  def on_recognized(self):
     if self.candidate_text:
       self.scene.removeItem(self.candidate_text)
     text = self.scene.addSimpleText(QString(' '.join(
@@ -106,22 +120,10 @@ class Canvas(canvas.Canvas):
     text.setPos(self.mapToScene(20, self.CHAR_HEIGHT + 20))
     self.candidate_text = text
 
-class Window(QWidget):
-  def __init__(self):
-    super(Window, self).__init__()
-
-    self.layout = QHBoxLayout()
-    self.setLayout(self.layout)
-    self.layout.setSpacing(0)
-    self.layout.setContentsMargins(0, 0, 0, 0)
-
 def main():
   app = QApplication(sys.argv)
-  window = Window()
   canvas = Canvas()
-  window.layout.addWidget(canvas)
-
-  window.show()
+  canvas.show()
   sys.exit(app.exec_())
 
 if __name__ == '__main__':

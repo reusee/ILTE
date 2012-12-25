@@ -15,8 +15,11 @@ class Canvas(QGraphicsView):
   BRUSH_SIZE = 50
   CHAR_WIDTH = 300
   CHAR_HEIGHT = 300
-  MINIMUM_PRESSURE = 0.005
+  MINIMUM_PRESSURE = 0
   MIDDLE_RATIO = math.tan(math.pi / 12)
+
+  reseted = pyqtSignal()
+  recognized = pyqtSignal()
 
   def __init__(self):
     super(Canvas, self).__init__()
@@ -48,45 +51,73 @@ class Canvas(QGraphicsView):
     self.result = []
     self.strokes = []
     self.transform_strokes = []
-    self.points = []
-    self.group = None
+    self.stroke_points = []
+    self.stroke_items = []
+    self.stroke_start = True
 
   def reset(self):
-    self.scene.clear()
+    for stroke in self.stroke_items:
+      for item in stroke:
+        self.scene.removeItem(item)
     self.strokes = []
     self.transform_strokes = []
-    self.points = []
-    self.group = None
-    self.on_reset()
+    self.stroke_points = []
+    self.stroke_items = []
+    self.stroke_start = True
+    self.reseted.emit()
 
-  def on_reset(self): pass
+  def undo_stroke(self):
+    if len(self.strokes) == 0: return
+    # remove stroke items
+    for item in self.stroke_items[-1]:
+      self.scene.removeItem(item)
+    self.stroke_items.pop()
+    # remove stroke
+    self.strokes.pop()
+    # remove transform stroke
+    self.transform_strokes.pop()
+    # clear stroke points
+    self.stroke_points = []
+    # recognize
+    if len(self.strokes) > 0: 
+      self.recognize()
+    else:
+      self.reset()
 
   def tabletEvent(self, event):
-    if event.type() == event.TabletMove:
-      event.accept()
-      if event.pressure() > self.MINIMUM_PRESSURE:
-        self.draw_point(event)
-        self.points.append((event.x(), event.y()))
-      elif event.pressure() == 0 and self.points:
-        simplified = simplify_points(self.points, 5)
-        for p1, p2 in zip(simplified[:-1], simplified[1:]):
-          self.draw_line(p1, p2)
+    if event.type() != event.TabletMove: return
+    event.accept()
+    if event.pressure() > self.MINIMUM_PRESSURE:
+      if self.stroke_start:
+        self.stroke_items.append([])
+        self.stroke_start = False
+      point = self.draw_point(event)
+      self.stroke_items[-1].append(point)
+      self.stroke_points.append((event.x(), event.y()))
+    elif event.pressure() == 0 and self.stroke_points:
+      simplified = simplify_points(self.stroke_points, 5)
+      for p1, p2 in zip(simplified[:-1], simplified[1:]):
+        line = self.draw_line(p1, p2)
+        self.stroke_items[-1].append(line)
 
-        self.strokes.append(simplified)
-        result = self.recognize()
+      self.strokes.append(simplified)
+      self.recognize()
 
-        self.points = []
+      self.stroke_points = []
+      self.stroke_start = True
 
   def draw_point(self, event):
     size = self.BRUSH_SIZE * event.pressure()
     rect = self.scene.addRect(-size / 2.0, -size / 2.0, size, size)
     rect.setPos(self.mapToScene(event.pos()))
     rect.setRotation(random.randint(0, 90))
+    return rect
 
   def draw_line(self, p1, p2):
     p1 = self.mapToScene(p1[0], p1[1])
     p2 = self.mapToScene(p2[0], p2[1])
-    self.scene.addLine(QLineF(p1, p2), self.pen)
+    line = self.scene.addLine(QLineF(p1, p2), self.pen)
+    return line
 
   def recognize(self):
     min_x = min_y = 2 ** 32
@@ -120,17 +151,6 @@ class Canvas(QGraphicsView):
         ny = y_transform(y)
         self.char.add(i, nx, ny)
         self.transform_strokes[i].append((nx, ny))
-
-    if self.group:
-      for item in self.group:
-        self.scene.removeItem(item)
-    self.group = []
-    for stroke in self.transform_strokes:
-      for p1, p2 in zip(stroke[:-1], stroke[1:]):
-        p1 = self.mapToScene(p1[0], p1[1]) + QPoint(20, 20)
-        p2 = self.mapToScene(p2[0], p2[1]) + QPoint(20, 20)
-        line = self.scene.addLine(QLineF(p1, p2), self.helper_pen)
-        self.group.append(line)
 
     htracks = []
     vtracks = []
@@ -180,10 +200,8 @@ class Canvas(QGraphicsView):
     for i in range(result.size()):
       skip = False
       value = result.value(i)
-      if STROKE_COUNTS[value] != stroke_count: continue
+      if value not in STROKE_COUNTS.get(stroke_count, []): continue
       for rule in TRACK_RULES.get(value, []):
-        print value, htracks, vtracks
-        print rule(htracks, vtracks)
         if not rule(htracks, vtracks): 
           skip = True
           break
@@ -191,16 +209,13 @@ class Canvas(QGraphicsView):
       if not INTERSECT_RULES.get(value, lambda i: True)(intersect_count):
         continue
       for rule in MOVE_RULES.get(value, []):
-        print value, rule, hmoves, vmoves
         if not rule(hmoves, vmoves): 
           continue
           skip = True
       if skip: continue
       self.result.append(Result(result.score(i), value))
     if result.size() > 0:
-      self.on_result()
-
-  def on_result(self): pass
+      self.recognized.emit()
 
   def get_line_direction(self, p1, p2):
     vx = p2[0] - p1[0]
