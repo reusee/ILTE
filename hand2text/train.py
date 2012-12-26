@@ -100,6 +100,10 @@ class Canvas(canvas.Canvas):
       self.undo_stroke()
     elif event.button() == Qt.MidButton:
       self.show_next()
+    elif event.button() == Qt.LeftButton:
+      if self.strokes:
+        self.output_train_data()
+      self.show_next()
 
   def output_train_data(self):
     print >>self.out, '(character (value %s) (width %d) (height %d) (strokes' % (
